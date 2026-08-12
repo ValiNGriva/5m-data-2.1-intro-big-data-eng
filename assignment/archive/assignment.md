@@ -85,7 +85,55 @@ Question: Count the number of movies with 3 comments or more.
 Answer:
 
 ```python
+# Optimize join operation by creating index
+db.comments.create_index("movie_id")
 
+# Look up related documents in the 'comments' collection:
+stage_lookup_comments = {
+   "$lookup": {
+         "from": "comments", 
+         "localField": "_id", 
+         "foreignField": "movie_id", 
+         "as": "related_comments",
+   }
+}
+
+# Calculate the number of comments for each movie:
+stage_add_comment_count = {
+   "$addFields": {
+         "comment_count": {
+            "$size": "$related_comments"
+         }
+   } 
+}
+
+# Match movie documents with more or equal than 3 comments:
+stage_match_with_3_more_comments = {
+   "$match": {
+         "comment_count": {
+            "$gte": 3
+         }
+   } 
+}
+
+# Count the total number of matching documents:
+stage_count_total = {
+    "$count": "total_movies_with_3_plus_comments"
+}
+
+pipeline = [
+   stage_lookup_comments,
+   stage_add_comment_count,
+   stage_match_with_3_more_comments,
+   stage_count_total,
+]
+
+# Convert the cursor to a standard Python list
+results = list(movies.aggregate(pipeline))
+
+total_count = results[0]["total_movies_with_3_plus_comments"] if results else 0
+
+print(f"Total count processed: {total_count}")
 ```
 
 ## Submission
